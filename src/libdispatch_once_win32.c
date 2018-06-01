@@ -50,34 +50,34 @@
 
 #include "libdispatch_once_win32.h"
 #include <Windows.h>
+#include <intrin.h>
 #include <stdint.h>
 #include "libdispatch_semaphore_win32.h"
 
-/* Actually, _mm_pause and _mm_mfence are declared in <intrin.h> */
-extern void _mm_pause(void);
-#pragma intrinsic(_mm_pause)
 #define _dispatch_hardware_pause _mm_pause
 
 /**
  *  It is better to use mfence instruction than cpuid in fact,
- *  but unfortunately mfence was introduced from Intel Pentium 4, 
+ *  but unfortunately mfence was introduced from Intel Pentium 4,
  *  so that running mfence on earlier CPU, for instance Pentium 3,
  *  will cause crash.
  */
 #define dispatch_atomic_maximally_synchronizing_barrier() \
     do { \
-        __asm \
-        { \
-            __asm mov eax, 0 \
-            __asm cpuid \
-        } \
+    	int tmp_cpu_info[4] = { -1 }; \
+    	__cpuid(tmp_cpu_info, 0); \
     } while (0)
 
 #define dispatch_atomic_acquire_barrier()
 #define dispatch_atomic_store_barrier()
 
-#define dispatch_atomic_xchg(_p, _n)         ((struct _dispatch_once_waiter_s *)InterlockedExchange((LONG volatile *)(_p), (LONG)(_n)))
-#define dispatch_atomic_cmpxchg(_p, _o, _n)  (InterlockedCompareExchangePointer((PVOID volatile *)(_p), (_n), (_o)) == (_o))
+#define dispatch_atomic_xchg(_p, _n) \
+    ((struct _dispatch_once_waiter_s *)InterlockedExchangePointer( \
+    	(PVOID volatile *)(_p), (PVOID)(_n)))
+
+#define dispatch_atomic_cmpxchg(_p, _o, _n) \
+    (InterlockedCompareExchangePointer( \
+    	(PVOID volatile *)(_p), (_n), (_o)) == (_o))
 
 #define _dispatch_client_callout(_ctx, _f) (_f)()
 #define DISPATCH_ONCE_DONE ((struct _dispatch_once_waiter_s *)~0l)
